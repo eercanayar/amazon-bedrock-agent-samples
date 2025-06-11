@@ -461,6 +461,24 @@ class RoutingAndOrchestrationTrace:
             else:
                 output_tokens = 0
             llm_calls = 1
+            
+            # Extract and print the model's thinking from rawResponse if available
+            if "rawResponse" in trace["modelInvocationOutput"]:
+                try:
+                    raw_response = trace["modelInvocationOutput"]["rawResponse"]
+                    if isinstance(raw_response, dict) and "content" in raw_response:
+                        response_content = raw_response["content"]
+                        response_data = json.loads(response_content)
+                        
+                        if "output" in response_data and "message" in response_data["output"]:
+                            message = response_data["output"]["message"]
+                            if "content" in message and isinstance(message["content"], list):
+                                for content_item in message["content"]:
+                                    if content_item.get("text") and content_item["text"] is not None:
+                                        print(colored(f"Model thinking: {content_item['text']}", TraceColor.rationale))
+                except Exception as e:
+                    print(colored(f"Error parsing model thinking: {e}", TraceColor.error))
+            
             print(
                 colored(
                     f"Input Tokens: {input_tokens} Output Tokens: {output_tokens}",
