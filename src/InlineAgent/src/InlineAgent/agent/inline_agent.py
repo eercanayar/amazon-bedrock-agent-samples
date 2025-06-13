@@ -6,7 +6,8 @@ import uuid
 import copy
 import os
 import boto3
-from typing import Callable, Dict, List, Literal, Optional, Tuple, Union
+import botocore.config
+from typing import Callable, Dict, List, Literal, Optional, Tuple, Union, Any
 from pydantic import Field
 from termcolor import colored
 from rich.console import Console
@@ -51,10 +52,14 @@ class InlineAgent:
     profile: str = field(default="default")
     user_input: bool = False
     tool_map: Dict[str, Callable] = None
+    boto3_session: Optional[boto3.Session] = None
+    boto3_config: Optional[botocore.config.Config] = None
 
     @property
     def session(self) -> boto3.Session:
         """Lazy loading of AWS session"""
+        if self.boto3_session is not None:
+            return self.boto3_session
         try:
             return boto3.Session(profile_name=self.profile)
         except:
@@ -265,9 +270,15 @@ class InlineAgent:
 
         agent_answer = ""
         
-        bedrock_agent_runtime = self.session.client(
-            "bedrock-agent-runtime"
-        )
+        if self.boto3_config is not None:
+            bedrock_agent_runtime = self.session.client(
+                "bedrock-agent-runtime",
+                config=self.boto3_config
+            )
+        else:
+            bedrock_agent_runtime = self.session.client(
+                "bedrock-agent-runtime"
+            )
 
         inlineSessionState = copy.deepcopy(session_state)
 
