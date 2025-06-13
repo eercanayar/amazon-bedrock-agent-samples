@@ -45,19 +45,39 @@ class ProcessROC:
             for param in functionInvocationInput["parameters"]:
                 if param["type"] == "array":
                     result = None
+                    original_value = param["value"]
+                    # Remove control characters that might cause JSON parsing to fail
+                    cleaned_value = ''.join(ch for ch in original_value if ord(ch) >= 32 or ch in '\n\r\t')
+                    
                     try:
-                        result = json.loads(param["value"])
-                    except Exception:
-                        json_str = (
-                            param["value"]
-                            .replace("=", ":")
-                            .replace("[{", '[{"')
-                            .replace("}]", '"}]')
-                        )
-                        json_str = json_str.replace(", ", '", "').replace(":", '":"')
-                        result = json.loads(json_str)
-                    finally:
-                        parameters[param["name"]] = result
+                        result = json.loads(cleaned_value)
+                    except Exception as e1:
+                        try:
+                            json_str = (
+                                cleaned_value
+                                .replace("=", ":")
+                                .replace("[{", '[{"')
+                                .replace("}]", '"}]')
+                            )
+                            json_str = json_str.replace(", ", '", "').replace(":", '":"')
+                            result = json.loads(json_str)
+                        except Exception as e2:
+                            # If JSON parsing fails even after cleanup attempts, return an error message
+                            error_msg = f"Failed to parse tool parameter '{param['name']}'. The model provided an invalid JSON format: {str(e2)}"
+                            print(colored(f"JSON parsing error: {error_msg}", TraceColor.invocation_input))
+                            return {
+                                "returnControlInvocationResults": [{
+                                    "functionResult": {
+                                        "actionGroup": functionInvocationInput["actionGroup"],
+                                        "agentId": functionInvocationInput["agentId"],
+                                        "function": functionInvocationInput["function"],
+                                        "responseBody": {"TEXT": {"body": error_msg}},
+                                        "responseState": "FAILURE"
+                                    }
+                                }]
+                            }
+                    
+                    parameters[param["name"]] = result
                 elif param["type"] == "string":
                     parameters[param["name"]] = param["value"]
                 elif param["type"] == "number":
