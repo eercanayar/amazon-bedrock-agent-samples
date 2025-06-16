@@ -370,6 +370,7 @@ class InlineAgent:
                             inlineSessionState=inlineSessionState,
                             roc_event=event["returnControl"],
                             tool_map=self.tool_map,
+                            trace_callback=trace_callback,
                         )
 
                     # Process trace

@@ -10,7 +10,8 @@ from InlineAgent.constants import TraceColor
 class ProcessROC:
     @staticmethod
     async def process_roc(
-        inlineSessionState: Dict, roc_event: Dict, tool_map: Dict[str, Callable]
+        inlineSessionState: Dict, roc_event: Dict, tool_map: Dict[str, Callable],
+        trace_callback: Callable[[str, str, str], None] = None,
     ):
         # TODO: Tool to invoke is str and callable
         if "returnControlInvocationResults" in inlineSessionState:
@@ -106,6 +107,7 @@ class ProcessROC:
                         functionInvocationInput=functionInvocationInput,
                         include_result=True,
                         parameters=parameters,
+                        trace_callback=trace_callback,
                     )
 
                 else:
@@ -116,6 +118,7 @@ class ProcessROC:
                                 tool_to_invoke=tool_to_invoke,
                                 parameters=parameters,
                                 confirm=None,
+                                trace_callback=trace_callback,
                             )
                         }
                     )
@@ -128,6 +131,7 @@ class ProcessROC:
                     functionInvocationInput=functionInvocationInput,
                     include_result=False,
                     parameters=parameters,
+                    trace_callback=trace_callback,
                 )
 
         inlineSessionState.update(inlineSessionState)
@@ -141,6 +145,7 @@ class ProcessROC:
         include_result: bool,
         parameters: Dict,
         tool_to_invoke: Union[str, Callable] = None,
+        trace_callback: Callable[[str, str, str], None] = None,
     ):
         while True:
             if isinstance(tool_to_invoke, Callable):
@@ -158,6 +163,7 @@ class ProcessROC:
                                 tool_to_invoke=tool_to_invoke,
                                 confirm="CONFIRM",
                                 parameters=parameters,
+                                trace_callback=trace_callback,
                             )
                         }
                     )
@@ -213,6 +219,7 @@ class ProcessROC:
         parameters: Dict = dict(),
         confirm: str = None,
         tool_to_invoke: Callable = None,
+        trace_callback: Callable[[str, str, str], None] = None,
     ) -> Dict:
 
         functionResult = dict
@@ -225,12 +232,17 @@ class ProcessROC:
             else:
                 result = tool_to_invoke(**parameters)
 
+            tool_output_msg = f"Tool output: {result}"
             print(
                 colored(
-                    f"Tool output: {result}",
+                    tool_output_msg,
                     TraceColor.invocation_input,
                 )
             )
+            
+            # Trigger trace callback for tool output if provided
+            if trace_callback:
+                trace_callback(tool_output_msg, "invocation_output", json.dumps({"tool_output": result}))
 
             functionResult = {
                 "actionGroup": functionInvocationInput["actionGroup"],
