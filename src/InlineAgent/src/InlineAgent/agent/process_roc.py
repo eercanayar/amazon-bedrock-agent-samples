@@ -221,7 +221,7 @@ class ProcessROC:
         tool_to_invoke: Callable = None,
         trace_callback: Callable[[str, str, str], None] = None,
     ) -> Dict:
-
+        print(f"invoke_roc_function() called with trace_callback={trace_callback is not None}")
         functionResult = dict
 
         # TODO: responseState
@@ -243,7 +243,9 @@ class ProcessROC:
             # Trigger trace callback for tool output if provided
             if trace_callback:
                 trace_callback(tool_output_msg, "invocation_output", json.dumps({"tool_output": result}))
-
+            else:
+                print("No trace callback provided for tool output.")
+                
             functionResult = {
                 "actionGroup": functionInvocationInput["actionGroup"],
                 "agentId": functionInvocationInput["agentId"],
