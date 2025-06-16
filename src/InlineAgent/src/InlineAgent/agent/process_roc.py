@@ -248,22 +248,11 @@ class ProcessROC:
                 )
             )
             
-            # Trigger trace callback for tool output with enhanced data
+            # Trigger trace callback for tool output with enhanced data - tool output that works
             if trace_callback:
                 # Send a standard trace message
                 trace_callback(tool_output_msg, "invocation_output", json.dumps({"tool_output": result}))
                 
-                # Send a dedicated tool_output trace with more detailed information
-                tool_trace_data = {
-                    "tool_name": tool_to_invoke.__name__,
-                    "parameters": parameters,
-                    "result": result,
-                    "timestamp": datetime.now().isoformat()
-                }
-                
-                # Format the trace message to be clearly visible in logs
-                detailed_trace_msg = f"TOOL OUTPUT: {tool_to_invoke.__name__} returned {formatted_result}"
-                trace_callback(detailed_trace_msg, "tool_output", json.dumps(tool_trace_data))
                 
             functionResult = {
                 "actionGroup": functionInvocationInput["actionGroup"],

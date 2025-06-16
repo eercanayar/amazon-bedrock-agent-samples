@@ -575,14 +575,11 @@ class RoutingAndOrchestrationTrace:
                 # Enhanced tool output logging
                 if "text" in trace["observation"]["actionGroupInvocationOutput"]:
                     output_text = trace["observation"]["actionGroupInvocationOutput"]["text"]
-                    
-                    # Format the tool output for better visibility
                     tool_output_msg = f"Tool use output: {output_text}"
-                    formatted_output = f"\n{'='*20} TOOL OUTPUT {'='*20}\n{output_text}\n{'='*50}"
-                    
+
                     print(
                         colored(
-                            formatted_output,
+                            tool_output_msg,
                             TraceColor.invocation_output,
                         )
                     )
@@ -591,9 +588,6 @@ class RoutingAndOrchestrationTrace:
                         # Send standard invocation_output trace
                         trace_callback(tool_output_msg, "invocation_output", json.dumps(trace['observation']['actionGroupInvocationOutput']))
                         
-                        # Add dedicated trace for tool output with clear formatting
-                        trace_callback(f"Tool output: {output_text}", "tool_output", json.dumps({"tool_output": output_text}))
-
             if "agentCollaboratorInvocationOutput" in trace["observation"]:
                 if (
                     "output"
