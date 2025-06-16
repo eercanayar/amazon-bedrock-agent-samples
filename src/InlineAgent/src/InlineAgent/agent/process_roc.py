@@ -1,6 +1,7 @@
 import copy
 import inspect
 import json
+from datetime import datetime
 from typing import Any, Callable, Dict, Union
 from termcolor import colored
 
@@ -253,15 +254,28 @@ class ProcessROC:
                 print("Tool is sync, executing directly...")
                 result = tool_to_invoke(**parameters)
             
-            print(f"Raw tool result: {result}")
-            print(f"Tool result type: {type(result)}")
-            if isinstance(result, dict):
-                print(f"Tool result as JSON: {json.dumps(result)}")
-
-            # Log the exact format we're looking for
-            print(f"Log the exact format we're looking for - Tool output: {json.dumps(result) if isinstance(result, dict) else result}")
+            # Enhanced logging for tool results
+            print(f"\n{'*'*20} TOOL EXECUTION RESULT {'*'*20}")
+            print(f"Tool: {tool_to_invoke.__name__}")
+            print(f"Raw result: {result}")
+            print(f"Result type: {type(result)}")
             
-            tool_output_msg = f"Tool output result: {result}"
+            # Format the result for better visibility
+            formatted_result = None
+            if isinstance(result, dict):
+                try:
+                    formatted_result = json.dumps(result, indent=2)
+                    print(f"Result as formatted JSON:\n{formatted_result}")
+                except Exception as e:
+                    print(f"Error formatting result as JSON: {e}")
+                    formatted_result = str(result)
+            else:
+                formatted_result = str(result)
+                
+            print(f"{'*'*60}\n")
+            
+            # Create a standardized tool output message
+            tool_output_msg = f"Tool output result: {formatted_result}"
             print(
                 colored(
                     tool_output_msg,
@@ -269,13 +283,26 @@ class ProcessROC:
                 )
             )
             
-            # Trigger trace callback for tool output if provided
+            # Trigger trace callback for tool output with enhanced data
             if trace_callback:
                 print("Invoking trace callback for tool output.")
-                print(f"Trace message: {tool_output_msg}")
-                print(f"Trace type: invocation_output")
-                print(f"Raw data: {json.dumps({'tool_output': result})}")
+                
+                # Send a standard trace message
                 trace_callback(tool_output_msg, "invocation_output", json.dumps({"tool_output": result}))
+                
+                # Send a dedicated tool_output trace with more detailed information
+                tool_trace_data = {
+                    "tool_name": tool_to_invoke.__name__,
+                    "parameters": parameters,
+                    "result": result,
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+                # Format the trace message to be clearly visible in logs
+                detailed_trace_msg = f"TOOL OUTPUT: {tool_to_invoke.__name__} returned {formatted_result}"
+                trace_callback(detailed_trace_msg, "tool_output", json.dumps(tool_trace_data))
+                
+                print(f"Sent detailed tool output trace with type 'tool_output'")
             else:
                 print("No trace callback provided for tool output.")
                 
