@@ -587,7 +587,7 @@ class RoutingAndOrchestrationTrace:
                     if "text" in trace["observation"]["actionGroupInvocationOutput"]:
                         output_text = trace["observation"]["actionGroupInvocationOutput"]["text"]
                         # Use invocation_output for logical consistency
-                        trace_callback(f"Tool output: {output_text}", "invocation_output", json.dumps({"tool_output": output_text}))
+                        trace_callback(f"Tool output trace callback: {output_text}", "invocation_output", json.dumps({"tool_output": output_text}))
 
             if "agentCollaboratorInvocationOutput" in trace["observation"]:
                 if (
