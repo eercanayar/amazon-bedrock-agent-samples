@@ -13,6 +13,9 @@ class ProcessROC:
         inlineSessionState: Dict, roc_event: Dict, tool_map: Dict[str, Callable],
         trace_callback: Callable[[str, str, str], None] = None,
     ):
+        print("========== PROCESS_ROC STARTED ==========")
+        print(f"ROC Event: {json.dumps(roc_event, indent=2)}")
+        print(f"Has trace_callback: {trace_callback is not None}")
         # TODO: Tool to invoke is str and callable
         if "returnControlInvocationResults" in inlineSessionState:
             raise ValueError(
@@ -25,6 +28,7 @@ class ProcessROC:
         inlineSessionState = copy.deepcopy(inlineSessionState)
         inlineSessionState = {"returnControlInvocationResults": []}
         inlineSessionState["invocationId"] = roc_event["invocationId"]
+        print(f"Processing invocation ID: {roc_event['invocationId']}")
 
         for invocationInput in roc_event["invocationInputs"]:
 
@@ -41,6 +45,9 @@ class ProcessROC:
             ]
             functionInvocationInput = invocationInput["functionInvocationInput"]
             actionGroup = functionInvocationInput["actionGroup"]
+            
+            print(f"Processing function: {functionInvocationInput['function']} from action group: {actionGroup}")
+            print(f"Action invocation type: {actionInvocationType}")
 
             parameters = dict()
             for param in functionInvocationInput["parameters"]:
@@ -94,6 +101,9 @@ class ProcessROC:
                 tool_to_invoke: Callable = None
                 if functionInvocationInput["function"] in tool_map:
                     tool_to_invoke = tool_map[functionInvocationInput["function"]]
+                    print(f"Found tool to invoke: {tool_to_invoke.__name__}")
+                else:
+                    print(f"WARNING: Tool {functionInvocationInput['function']} not found in tool_map!")
 
                 if not tool_to_invoke:
                     raise ValueError(
@@ -111,15 +121,18 @@ class ProcessROC:
                     )
 
                 else:
+                    print(f"Invoking tool {functionInvocationInput['function']} with parameters: {json.dumps(parameters)}")
+                    function_result = await ProcessROC.invoke_roc_function(
+                        functionInvocationInput=functionInvocationInput,
+                        tool_to_invoke=tool_to_invoke,
+                        parameters=parameters,
+                        confirm=None,
+                        trace_callback=trace_callback,
+                    )
+                    print(f"Function result: {json.dumps(function_result)}")
                     inlineSessionState["returnControlInvocationResults"].append(
                         {
-                            "functionResult": await ProcessROC.invoke_roc_function(
-                                functionInvocationInput=functionInvocationInput,
-                                tool_to_invoke=tool_to_invoke,
-                                parameters=parameters,
-                                confirm=None,
-                                trace_callback=trace_callback,
-                            )
+                            "functionResult": function_result
                         }
                     )
 
@@ -135,7 +148,9 @@ class ProcessROC:
                 )
 
         inlineSessionState.update(inlineSessionState)
-
+        
+        print(f"Final session state: {json.dumps(inlineSessionState)}")
+        print("========== PROCESS_ROC COMPLETED ==========")
         return inlineSessionState
 
     @staticmethod
@@ -221,17 +236,31 @@ class ProcessROC:
         tool_to_invoke: Callable = None,
         trace_callback: Callable[[str, str, str], None] = None,
     ) -> Dict:
-        print(f"invoke_roc_function() called with trace_callback={trace_callback is not None}")
+        print("========== INVOKE_ROC_FUNCTION STARTED ==========")
+        print(f"Function: {functionInvocationInput['function']}")
+        print(f"Parameters: {json.dumps(parameters)}")
+        print(f"Has trace_callback: {trace_callback is not None}")
         functionResult = dict
 
         # TODO: responseState
         try:
 
+            print(f"Executing tool: {tool_to_invoke.__name__}")
             if inspect.iscoroutinefunction(tool_to_invoke):
+                print("Tool is async, awaiting result...")
                 result = await tool_to_invoke(**parameters)
             else:
+                print("Tool is sync, executing directly...")
                 result = tool_to_invoke(**parameters)
+            
+            print(f"Raw tool result: {result}")
+            print(f"Tool result type: {type(result)}")
+            if isinstance(result, dict):
+                print(f"Tool result as JSON: {json.dumps(result)}")
 
+            # Log the exact format we're looking for
+            print(f"Log the exact format we're looking for - Tool output: {json.dumps(result) if isinstance(result, dict) else result}")
+            
             tool_output_msg = f"Tool output result: {result}"
             print(
                 colored(
@@ -243,6 +272,9 @@ class ProcessROC:
             # Trigger trace callback for tool output if provided
             if trace_callback:
                 print("Invoking trace callback for tool output.")
+                print(f"Trace message: {tool_output_msg}")
+                print(f"Trace type: invocation_output")
+                print(f"Raw data: {json.dumps({'tool_output': result})}")
                 trace_callback(tool_output_msg, "invocation_output", json.dumps({"tool_output": result}))
             else:
                 print("No trace callback provided for tool output.")
@@ -265,8 +297,14 @@ class ProcessROC:
         if confirm:
             if confirm == "CONFIRM":
                 functionResult["confirmationState"] = confirm
+                print(f"Returning function result with confirmation: {json.dumps(functionResult)}")
+                print("========== INVOKE_ROC_FUNCTION COMPLETED ==========")
                 return functionResult
             else:
+                print(f"Invalid confirmation value: {confirm}")
+                print("========== INVOKE_ROC_FUNCTION ERROR ==========")
                 raise ValueError("Only CONFIRM is a value value")
         else:
+            print(f"Returning function result: {json.dumps(functionResult)}")
+            print("========== INVOKE_ROC_FUNCTION COMPLETED ==========")
             return functionResult
