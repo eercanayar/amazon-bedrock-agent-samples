@@ -587,9 +587,6 @@ class RoutingAndOrchestrationTrace:
                         )
                     )
                     
-                    # Log raw output for debugging
-                    print(f"Raw tool output data: {json.dumps(trace['observation']['actionGroupInvocationOutput'], indent=2)}")
-                    
                     if trace_callback:
                         # Send standard invocation_output trace
                         trace_callback(tool_output_msg, "invocation_output", json.dumps(trace['observation']['actionGroupInvocationOutput']))
