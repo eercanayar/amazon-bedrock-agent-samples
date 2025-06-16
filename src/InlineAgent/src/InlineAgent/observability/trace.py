@@ -581,6 +581,11 @@ class RoutingAndOrchestrationTrace:
                 )
                 if trace_callback:
                     trace_callback(tool_output_msg, "invocation_output", json.dumps(trace['observation']['actionGroupInvocationOutput']))
+                    
+                    # Add explicit trace for tool output to match the logs
+                    if "text" in trace["observation"]["actionGroupInvocationOutput"]:
+                        output_text = trace["observation"]["actionGroupInvocationOutput"]["text"]
+                        trace_callback(f"Tool output: \n{output_text}", "invocation_output", json.dumps({"output": output_text}))
 
             if "agentCollaboratorInvocationOutput" in trace["observation"]:
                 if (
