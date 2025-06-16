@@ -242,6 +242,7 @@ class ProcessROC:
             
             # Trigger trace callback for tool output if provided
             if trace_callback:
+                print("Invoking trace callback for tool output.")
                 trace_callback(tool_output_msg, "invocation_output", json.dumps({"tool_output": result}))
             else:
                 print("No trace callback provided for tool output.")
