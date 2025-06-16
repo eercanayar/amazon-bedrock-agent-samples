@@ -395,6 +395,7 @@ class InlineAgent:
                                         "citations"
                                     ],
                                     cite=1 if not cite else cite,
+                                    trace_callback=trace_callback,
                                 )
                             else:
                                 data = event["chunk"]["bytes"]

@@ -74,7 +74,7 @@ class Trace:
         return int(input_tokens), int(output_tokens), int(llm_calls)
 
     @staticmethod
-    def add_citation(citations: List, cite=1) -> str:
+    def add_citation(citations: List, cite=1, trace_callback: Callable[[str, str, str], None] = None) -> str:
 
         agent_answer = str()
 
@@ -121,7 +121,12 @@ class Trace:
             agent_answer += text
             print(colored(text, TraceColor.final_output), end="")
             if citation["retrievedReferences"]:
-                print(colored(f" [{cite}]", TraceColor.error), end="")
+                cite_ref = f" [{cite}]"
+                print(colored(cite_ref, TraceColor.error), end="")
+                if trace_callback:
+                    trace_callback(f"{text}{cite_ref}", "final_output", json.dumps(citation))
+            elif trace_callback:
+                trace_callback(text, "final_output", json.dumps(citation))
 
             cite += 1
 
@@ -130,6 +135,9 @@ class Trace:
             if len(output[1]):
                 print(colored(output[0], TraceColor.cite))
                 print(colored(output[1] + "\n", TraceColor.retrieved_references))
+                if trace_callback:
+                    trace_callback(output[0], "cite", json.dumps({"citation": output[0]}))
+                    trace_callback(output[1], "retrieved_references", json.dumps({"references": output[1]}))
 
         return agent_answer, cite
 
@@ -390,12 +398,15 @@ class RoutingAndOrchestrationTrace:
                     param_str = f"{parameter['name']}[{parameter['value']}] ({parameter['type']})"
                     params_info.append(param_str)
 
+                tool_use_msg = f"Tool use: {tool} with these inputs: {' '.join(params_info)}"
                 print(
                     colored(
-                        f"Tool use: {tool} with these inputs: {' '.join(params_info)}",
+                        tool_use_msg,
                         TraceColor.invocation_input,
                     )
                 )
+                if trace_callback:
+                    trace_callback(tool_use_msg, "invocation_input", json.dumps(trace["invocationInput"]["actionGroupInvocationInput"]))
 
             if "agentCollaboratorInvocationInput" in trace["invocationInput"]:
                 if (
@@ -420,12 +431,15 @@ class RoutingAndOrchestrationTrace:
                                 text += f"{returnControlInvocationResult['functionResult']['actionGroup']} :: {returnControlInvocationResult['functionResult']['function']} ({returnControlInvocationResult['functionResult']['responseBody']['string']['body']})"
 
                     if text:
+                        collab_text_msg = f"Agent collaborator: {trace['invocationInput']['agentCollaboratorInvocationInput']['agentCollaboratorName']} invoked with {text}"
                         print(
                             colored(
-                                f"Agent collaborator: {trace['invocationInput']['agentCollaboratorInvocationInput']['agentCollaboratorName']} invoked with {text}",
+                                collab_text_msg,
                                 TraceColor.invocation_input,
                             )
                         )
+                        if trace_callback:
+                            trace_callback(collab_text_msg, "invocation_input", json.dumps(trace['invocationInput']['agentCollaboratorInvocationInput']))
                     if (
                         "text"
                         in trace["invocationInput"]["agentCollaboratorInvocationInput"][
@@ -435,12 +449,15 @@ class RoutingAndOrchestrationTrace:
                         text = trace["invocationInput"][
                             "agentCollaboratorInvocationInput"
                         ]["input"]["text"]
+                        collab_text_msg = f"Agent collaborator: {trace['invocationInput']['agentCollaboratorInvocationInput']['agentCollaboratorName']} invoked with {text}"
                         print(
                             colored(
-                                f"Agent collaborator: {trace['invocationInput']['agentCollaboratorInvocationInput']['agentCollaboratorName']} invoked with {text}",
+                                collab_text_msg,
                                 TraceColor.invocation_input,
                             )
                         )
+                        if trace_callback:
+                            trace_callback(collab_text_msg, "invocation_input", json.dumps(trace['invocationInput']['agentCollaboratorInvocationInput']))
                     else:
                         text = str()
 
@@ -461,20 +478,26 @@ class RoutingAndOrchestrationTrace:
                     "files"
                     in trace["invocationInput"]["codeInterpreterInvocationInput"]
                 ):
+                    code_files_msg = "Code Interpreter invoked with uploaded files"
                     print(
                         colored(
-                            "Code Interpreter invoked with uploaded files",
+                            code_files_msg,
                             TraceColor.invocation_input,
                         )
                     )
+                    if trace_callback:
+                        trace_callback(code_files_msg, "invocation_input", json.dumps(trace['invocationInput']['codeInterpreterInvocationInput']))
 
             if "knowledgeBaseLookupInput" in trace["invocationInput"]:
+                kb_lookup_msg = f"Knowledgebase retrieval: Knowledgebase Id ({trace['invocationInput']['knowledgeBaseLookupInput']['knowledgeBaseId']}) query ({trace['invocationInput']['knowledgeBaseLookupInput']['text']})"
                 print(
                     colored(
-                        f"Knowledgebase retrieval: Knowledgebase Id ({trace['invocationInput']['knowledgeBaseLookupInput']['knowledgeBaseId']}) query ({trace['invocationInput']['knowledgeBaseLookupInput']['text']})",
+                        kb_lookup_msg,
                         TraceColor.invocation_input,
                     )
                 )
+                if trace_callback:
+                    trace_callback(kb_lookup_msg, "invocation_input", json.dumps(trace['invocationInput']['knowledgeBaseLookupInput']))
 
     @staticmethod
     def parse_model_invocation_input(trace, trace_callback: Callable[[str, str, str], None] = None):
@@ -521,9 +544,15 @@ class RoutingAndOrchestrationTrace:
                             if "content" in message and isinstance(message["content"], list):
                                 for content_item in message["content"]:
                                     if content_item.get("text") and content_item["text"] is not None:
-                                        print(colored(f"Model thinking: {content_item['text']}", TraceColor.rationale))
+                                        model_thinking_msg = f"Model thinking: {content_item['text']}"
+                                        print(colored(model_thinking_msg, TraceColor.rationale))
+                                        if trace_callback:
+                                            trace_callback(model_thinking_msg, "rationale", json.dumps(content_item))
                 except Exception as e:
-                    print(colored(f"Error parsing model thinking: {e}", TraceColor.error))
+                    error_msg = f"Error parsing model thinking: {e}"
+                    print(colored(error_msg, TraceColor.error))
+                    if trace_callback:
+                        trace_callback(error_msg, "error", json.dumps({"error": str(e)}))
             
             stats_msg = f"Input Tokens: {input_tokens} Output Tokens: {output_tokens}"
             print(
@@ -591,12 +620,15 @@ class RoutingAndOrchestrationTrace:
                         text = trace["observation"][
                             "agentCollaboratorInvocationOutput"
                         ]["output"]["text"]
+                        collab_output_msg = f"Collaborator output: {text}"
                         print(
                             colored(
-                                f"Collaborator output: {text}",
+                                collab_output_msg,
                                 TraceColor.invocation_input,
                             )
                         )
+                        if trace_callback:
+                            trace_callback(collab_output_msg, "invocation_input", json.dumps(trace['observation']['agentCollaboratorInvocationOutput']))
                     else:
                         text = str()
 
@@ -636,20 +668,26 @@ class RoutingAndOrchestrationTrace:
                     if trace["observation"]["codeInterpreterInvocationOutput"][
                         "executionTimeout"
                     ]:
+                        timeout_msg = "Code interpreter output error: Execution timeout"
                         print(
                             colored(
-                                f"Code interpreter output error: Execution timeout",
+                                timeout_msg,
                                 TraceColor.error,
                             )
                         )
+                        if trace_callback:
+                            trace_callback(timeout_msg, "error", json.dumps({"executionTimeout": True}))
 
                 if "files" in trace["observation"]["codeInterpreterInvocationOutput"]:
+                    files_msg = "Code Interpreter created new files"
                     print(
                         colored(
-                            "Code Interpreter created new files",
+                            files_msg,
                             TraceColor.invocation_input,
                         )
                     )
+                    if trace_callback:
+                        trace_callback(files_msg, "invocation_input", json.dumps({"files": True}))
 
             if "finalResponse" in trace["observation"]:
                 pass
@@ -665,12 +703,15 @@ class RoutingAndOrchestrationTrace:
                         if "content" in retrievedReference:
                             # TODO: ["content"]["type"] does not exist
                             # if retrievedReference["content"]["type"] == "TEXT":
+                            kb_text = retrievedReference["content"]["text"]
                             print(
                                 colored(
-                                    retrievedReference["content"]["text"],
+                                    kb_text,
                                     TraceColor.invocation_output,
                                 )
                             )
+                            if trace_callback:
+                                trace_callback(kb_text, "invocation_output", json.dumps(retrievedReference))
                             # elif retrievedReference["content"]["type"] == "IMAGE":
                             #     print(
                             #         colored(
@@ -694,17 +735,23 @@ class RoutingAndOrchestrationTrace:
                             #     )
 
                         if "location" in retrievedReference:
+                            location_msg = f"Location: {json.dumps(retrievedReference['location'], indent=2, default=str)}"
                             print(
                                 colored(
-                                    f"Location: {json.dumps(retrievedReference['location'], indent=2, default=str)}",
+                                    location_msg,
                                     TraceColor.invocation_output,
                                 )
                             )
+                            if trace_callback:
+                                trace_callback(location_msg, "invocation_output", json.dumps(retrievedReference['location']))
 
             if "repromptResponse" in trace["observation"]:
+                reprompt_msg = f"Reprompting {trace['observation']['repromptResponse']['source']} with query {trace['orchestrationTrace']['observation']['repromptResponse']['text']}"
                 print(
                     colored(
-                        f"Reprompting {trace['observation']['repromptResponse']['source']} with query {trace['orchestrationTrace']['observation']['repromptResponse']['text']}",
+                        reprompt_msg,
                         TraceColor.invocation_output,
                     )
                 )
+                if trace_callback:
+                    trace_callback(reprompt_msg, "invocation_output", json.dumps(trace['observation']['repromptResponse']))
