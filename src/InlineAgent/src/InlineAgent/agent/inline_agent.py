@@ -262,6 +262,7 @@ class InlineAgent:
         bedrock_model_configurations: Dict = {
             "performanceConfig": {"latency": "standard"}
         },
+        trace_callback: Callable[[str, str, str], None] = None,
     ):
         if session_state is None:
             session_state = {}
@@ -379,6 +380,7 @@ class InlineAgent:
                             trace=event["trace"]["trace"],
                             truncateResponse=truncate_response,
                             agentName=self.agent_name,
+                            trace_callback=trace_callback,
                         )
                         total_input_tokens += int(input_tokens)
                         total_output_tokens += int(output_tokens)
