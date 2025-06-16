@@ -248,10 +248,27 @@ class ProcessROC:
                 )
             )
             
-            # Trigger trace callback for tool output with enhanced data - tool output that works
+            # Trigger trace callback for tool output with enhanced data
             if trace_callback:
-                # Send a standard trace message
-                trace_callback(tool_output_msg, "invocation_output", json.dumps({"tool_output": result}))
+                # Define a default handler for non-serializable objects
+                def json_serializer(obj):
+                    try:
+                        return str(obj)
+                    except:
+                        return "non-serializable-object"
+                
+                # Check if result is already valid JSON to determine how to send it
+                if isinstance(result, dict):
+                    try:
+                        # If it's a valid JSON object, send it directly as the 3rd argument
+                        # Using default parameter to handle non-serializable objects
+                        trace_callback(tool_output_msg, "invocation_output", json.dumps(result, default=json_serializer))
+                    except Exception:
+                        # If JSON serialization still fails, wrap it as {"tool_output": result}
+                        trace_callback(tool_output_msg, "invocation_output", json.dumps({"tool_output": str(result)}, default=json_serializer))
+                else:
+                    # For non-JSON results, keep them wrapped as {"tool_output": result}
+                    trace_callback(tool_output_msg, "invocation_output", json.dumps({"tool_output": result}, default=json_serializer))
                 
                 
             functionResult = {
