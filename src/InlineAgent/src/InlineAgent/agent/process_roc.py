@@ -232,7 +232,7 @@ class ProcessROC:
             else:
                 result = tool_to_invoke(**parameters)
 
-            tool_output_msg = f"Tool output: {result}"
+            tool_output_msg = f"Tool output result: {result}"
             print(
                 colored(
                     tool_output_msg,
