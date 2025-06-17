@@ -1,6 +1,7 @@
 import copy
 import inspect
 import json
+import re
 from datetime import datetime
 from typing import Any, Callable, Dict, Union
 from termcolor import colored
@@ -64,23 +65,44 @@ class ProcessROC:
                             json_str = json_str.replace(", ", '", "').replace(":", '":"')
                             result = json.loads(json_str)
                         except Exception as e2:
-                            # If JSON parsing fails even after cleanup attempts, return an error message
-                            error_msg = f"Failed to parse tool parameter '{param['name']}'. The model provided an invalid JSON format: {str(e2)}. Raw input: '{cleaned_value}'"
-                            print(colored(f"JSON parsing error: {error_msg}", TraceColor.invocation_input))
-                            # Trigger trace callback for JSON parsing error
-                            if trace_callback:
-                                trace_callback(f"JSON parsing error: {error_msg}", "invocation_output", json.dumps({"error": error_msg}))
-                            return {
-                                "returnControlInvocationResults": [{
-                                    "functionResult": {
-                                        "actionGroup": functionInvocationInput["actionGroup"],
-                                        "agentId": functionInvocationInput["agentId"],
-                                        "function": functionInvocationInput["function"],
-                                        "responseBody": {"TEXT": {"body": error_msg}},
-                                        "responseState": "FAILURE"
-                                    }
-                                }]
-                            }
+                            try:
+                                # Handle arrays with unquoted instance types like [r6i.xlarge, r6i.4xlarge]
+                                # Check if it's an array pattern with unquoted values
+                                if cleaned_value.startswith('[') and cleaned_value.endswith(']'):
+                                    # Use regex to add quotes around unquoted values in arrays
+                                    # This pattern matches words with dots and numbers that aren't already quoted
+                                    array_content = cleaned_value[1:-1]  # Remove the brackets
+                                    # Add quotes around each item that doesn't already have quotes
+                                    quoted_items = []
+                                    for item in re.split(r',\s*', array_content):
+                                        item = item.strip()
+                                        if item and not (item.startswith('"') and item.endswith('"')):
+                                            quoted_items.append(f'"{item}"')
+                                        else:
+                                            quoted_items.append(item)
+                                    
+                                    json_str = f"[{','.join(quoted_items)}]"
+                                    result = json.loads(json_str)
+                                else:
+                                    raise Exception("Not an array format that can be fixed with regex")
+                            except Exception as e3:
+                                # If JSON parsing fails even after cleanup attempts, return an error message
+                                error_msg = f"Failed to parse tool parameter '{param['name']}'. The model provided an invalid JSON format: {str(e3)}. Raw input: '{cleaned_value}'"
+                                print(colored(f"JSON parsing error: {error_msg}", TraceColor.invocation_input))
+                                # Trigger trace callback for JSON parsing error
+                                if trace_callback:
+                                    trace_callback(f"JSON parsing error: {error_msg}", "invocation_output", json.dumps({"error": error_msg}))
+                                return {
+                                    "returnControlInvocationResults": [{
+                                        "functionResult": {
+                                            "actionGroup": functionInvocationInput["actionGroup"],
+                                            "agentId": functionInvocationInput["agentId"],
+                                            "function": functionInvocationInput["function"],
+                                            "responseBody": {"TEXT": {"body": error_msg}},
+                                            "responseState": "FAILURE"
+                                        }
+                                    }]
+                                }
                     
                     parameters[param["name"]] = result
                 elif param["type"] == "string":
