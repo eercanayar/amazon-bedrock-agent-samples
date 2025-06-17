@@ -65,8 +65,11 @@ class ProcessROC:
                             result = json.loads(json_str)
                         except Exception as e2:
                             # If JSON parsing fails even after cleanup attempts, return an error message
-                            error_msg = f"Failed to parse tool parameter '{param['name']}'. The model provided an invalid JSON format: {str(e2)}"
+                            error_msg = f"Failed to parse tool parameter '{param['name']}'. The model provided an invalid JSON format: {str(e2)}. Raw input: '{cleaned_value}'"
                             print(colored(f"JSON parsing error: {error_msg}", TraceColor.invocation_input))
+                            # Trigger trace callback for JSON parsing error
+                            if trace_callback:
+                                trace_callback(f"JSON parsing error: {error_msg}", "invocation_output", json.dumps({"error": error_msg}))
                             return {
                                 "returnControlInvocationResults": [{
                                     "functionResult": {
